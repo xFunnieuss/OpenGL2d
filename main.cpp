@@ -40,20 +40,22 @@ struct Circle {
     mutable double yVel;
     mutable int collisionDebounce = 0;
     void updatePosition() {
-        collisionDebounce--;
+        collisionDebounce--; //antiquated
         yVel = yVel - (0.000981/aspect);
         //xVel = xVel - 0.000981;
-        //keeps balls relative to where they are
-
-        posX = (posX + 1) * (double)lastWidth / (double)width - 1.0;
-        posY = 1 - (1 - posY) * (double)lastHeight / (double)height;
         radius = radius * (double)lastHeight / (double)height;
         int dWX = windowPosX - lastWPX;
         int dWY = windowPosY - lastWPY;
+        //impulse function (balls gain velocity when window is physically shaken)
         double impulseX =  -(double)dWX / (width  ) * 0.05;
         double impulseY = (double)dWY / (height ) * 0.05;
-        yVel += impulseY;
-        xVel += impulseX;
+        if (impulseX != 0 && impulseY != 0) {
+            yVel += impulseY;
+            xVel += impulseX;
+        }
+        //keeps balls relative to where they are on window resize (glitchy_
+        posX = (posX + 1) * (double)lastWidth / (double)width - 1.0;
+        posY = 1 - (1 - posY) * (double)lastHeight / (double)height;
         posX += (xVel / aspect);
         posY += (yVel / aspect);
         //posY -= forceDampening;
@@ -76,9 +78,9 @@ struct Circle {
                 posX = -1 + radius;
             }
         }
+        //slow balls down over time (should we add real drag?)
         xVel = xVel * forceDampening;
         yVel = yVel * forceDampening;
-        //impuse function (movement of balls when wall moves
     }
 };
 int main() {
