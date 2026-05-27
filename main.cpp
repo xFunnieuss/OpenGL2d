@@ -13,14 +13,19 @@ void drawCircle(GLFWwindow* window, double radius, double posX, double posY, dou
 void drawBlock(GLFWwindow* window, double x, double y, double length, double width, double r, double g, double b);
 void cordToNDC(double mousex, double mousey, float* ndcX, float* ndcY);
 int mouseUp = 1;
+
 int width = 640;
 int lastWidth = 640;
+
 int height = 480;
+int originalHeight = 480;
 int lastHeight = 480;
+
 int windowPosX = 0;
 int lastWPX = 0;
 int windowPosY = 0;
 int lastWPY = 0;
+
 double offset = 0;
 double lastMouseX = 0;
 double lastMouseY = 0;
@@ -38,10 +43,12 @@ struct Circle {
     double b;
     mutable double xVel;
     mutable double yVel;
+    double mass;
     mutable int collisionDebounce = 0;
     void updatePosition() {
-        collisionDebounce--; //antiquated
-        yVel = yVel - (0.000981/aspect);
+       // collisionDebounce--; //antiquated
+
+        yVel = yVel - (0.000981);
         //xVel = xVel - 0.000981;
         radius = radius * (double)lastHeight / (double)height;
         int dWX = windowPosX - lastWPX;
@@ -53,11 +60,11 @@ struct Circle {
             yVel += impulseY;
             xVel += impulseX;
         }
-        //keeps balls relative to where they are on window resize (glitchy_
-        posX = (posX + 1) * (double)lastWidth / (double)width - 1.0;
+        //keeps balls relative to where they are on window resize (glitchy)
+        posX = (posX + 1) * (double)lastWidth / (double)width - 1;
         posY = 1 - (1 - posY) * (double)lastHeight / (double)height;
-        posX += (xVel / aspect);
-        posY += (yVel / aspect);
+        posX += xVel;
+        posY += yVel;
         //posY -= forceDampening;
         //collision functions for walls
         if (std::abs(posY) + radius >= 1) {
@@ -107,10 +114,22 @@ int main() {
                 if (c.ballId != c2.ballId) {
                     double distance = std::sqrt(std::pow((c2.posX - c.posX), 2) + std::pow((c2.posY - c.posY), 2));
                     if (distance <= c.radius + c2.radius) {
-                        double diffX = -(c2.posX - c.posX)/50;
-                        double diffY = c.radius + c2.radius -(c2.posY - c.posY);
-                        c.xVel = (c.xVel * -1) + diffX;
-                        c.yVel = c.yVel * -1;
+                        //thank you https://ericleong.me/research/circle-circle/ for the resulting movement calculations
+                        //first calculate intersect midpoint so balls can be moved from out of each other
+                        double midpointx = (c.posX + c2.posX) / 2;
+                        double midpointy = (c.posY + c2.posY) / 2;
+                        c.posX = midpointx + c.radius * (c.posX - c2.posX) / distance;
+                        c.posY = midpointy + c.radius * (c.posY - c2.posY) / distance;
+                        c2.posX = midpointx + c2.radius * (c2.posX - c.posX) / distance;
+                        c2.posY = midpointy + c2.radius * (c2.posY - c.posY) / distance;
+                        //now calculate normals
+                        double nx = (c2.posX - c.posX) / distance;
+                        double ny = (c2.posY - c.posY) / distance;
+                        double p = 2 * (c.xVel * nx + c.yVel * ny - c2.xVel * nx + c2.yVel * ny) / (c.mass + c2.mass);
+                        c.xVel = c.xVel - p * c.mass * nx;
+                        c2.xVel = c2.xVel + p * c2.mass * nx;
+                        c.yVel = c.yVel - p * c.mass * ny;
+                        c2.yVel = c2.yVel + p * c2.mass * ny;
                     }
                 }
             }
@@ -123,13 +142,14 @@ int main() {
     }
 }
 GLFWwindow* init() {
-    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
     if (!glfwInit()) {
         std::cerr << "window wont open brutal";
         return nullptr;
     }
     GLFWwindow* newWin = glfwCreateWindow(width, height, "BALLS", nullptr, nullptr);
     glfwMakeContextCurrent(newWin);
+    glfwSwapInterval(1);
     return newWin;
 }
 void bindLeftClick(GLFWwindow* window) {
@@ -144,8 +164,9 @@ void bindLeftClick(GLFWwindow* window) {
         mouseUp = 0;
        // std::cout << "Mouse Down!\n";
         //cords are out of -1 to 1 for drawing purposes
-        double rad = 0.1;
-        circles.emplace_back(random(), rad, ndcX, ndcY, (double)random()/RAND_MAX,(double)random()/RAND_MAX,(double)random()/RAND_MAX, mouseDiffX, mouseDiffY);
+        double rad = 0.1 * ((double)originalHeight/height);
+        double mass = 3.14159 * (rad * rad); //area
+        circles.emplace_back(random(), rad, ndcX, ndcY, (double)random()/RAND_MAX,(double)random()/RAND_MAX,(double)random()/RAND_MAX, mouseDiffX, mouseDiffY, mass);
     }
     if (!clik && !mouseUp) {
         mouseUp = 1;
