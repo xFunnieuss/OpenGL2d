@@ -47,7 +47,6 @@ struct Circle {
     mutable int collisionDebounce = 0;
     void updatePosition() {
        // collisionDebounce--; //antiquated
-
         yVel = yVel - (0.000981);
         //xVel = xVel - 0.000981;
         radius = radius * (double)lastHeight / (double)height;
@@ -116,6 +115,8 @@ int main() {
                     if (distance <= c.radius + c2.radius) {
                         //thank you https://ericleong.me/research/circle-circle/ for the resulting movement calculations
                         //first calculate intersect midpoint so balls can be moved from out of each other
+
+                        //these need to be normalized to NDC form
                         double midpointx = (c.posX + c2.posX) / 2;
                         double midpointy = (c.posY + c2.posY) / 2;
                         c.posX = midpointx + c.radius * (c.posX - c2.posX) / distance;
