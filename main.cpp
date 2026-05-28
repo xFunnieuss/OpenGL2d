@@ -58,8 +58,8 @@ struct Circle {
         int dWX = windowPosX - lastWPX;
         int dWY = windowPosY - lastWPY;
         //impulse function (balls gain velocity when window is physically shaken)
-        double impulseX =  -(double)dWX / (width  ) * 0.5;
-        double impulseY = (double)dWY / (height ) * 0.5;
+        double impulseX =  -(double)dWX / (width  ) * 8;
+        double impulseY = (double)dWY / (height ) * 8;
         if (impulseX != 0 && impulseY != 0) {
             yVel += impulseY;
             xVel += impulseX;
@@ -71,7 +71,6 @@ struct Circle {
          posY += yVel;
         //posY -= forceDampening;
         //collision functions for walls
-        std::cout << std::abs(posY) << std::endl;
         if (posY + radius >= height || posY - radius <= 0 ) {
             yVel = yVel * -1;
             if (posY > height - radius) {
@@ -83,7 +82,7 @@ struct Circle {
         }
         if (posX + radius >= width || posX - radius <= 0 ) {
             xVel = xVel * -1;
-            if (posY > width - radius) {
+            if (posX > width - radius) {
                 posX = width - radius;
             }
             if (posX < 0 + radius) {
@@ -156,7 +155,7 @@ int main() {
     }
 }
 GLFWwindow* init() {
-    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     if (!glfwInit()) {
         std::cerr << "window wont open brutal";
         return nullptr;
@@ -218,16 +217,20 @@ void handleBallCollision(const Circle &c, const Circle &c2) {
     //first calculate intersect midpoint so balls can be moved from out of each other
     double distance = std::sqrt(std::pow((c2.posX - c.posX), 2) + std::pow((c2.posY - c.posY), 2));
     if (distance <= c.radius + c2.radius ) {
+        //calculate normals before separation
+        double nx = (c2.posX - c.posX) / distance;
+        double ny = (c2.posY - c.posY) / distance;
+        //separate
         double midpointx = (c.posX + c2.posX) / 2;
         double midpointy = (c.posY + c2.posY) / 2;
         c.posX = midpointx + c.radius * (c.posX - c2.posX) / distance;
         c.posY = midpointy + c.radius * (c.posY - c2.posY) / distance;
         c2.posX = midpointx + c2.radius * (c2.posX - c.posX) / distance;
         c2.posY = midpointy + c2.radius * (c2.posY - c.posY) / distance;
-        //now calculate normals
-        double nx = (c2.posX - c.posX) / distance;
-        double ny = (c2.posY - c.posY) / distance;
-        double p = 2 * (c.xVel * nx + c.yVel * ny - c2.xVel * nx + c2.yVel * ny) / (c.mass + c2.mass);
+        //now calculate impulse
+        double p = 2 * (c.xVel * nx + c.yVel * ny - c2.xVel * nx - c2.yVel * ny) / (c.mass + c2.mass);
+        double e = 0.9; //elasticity multiplier
+        p = p * e;
         c.xVel = c.xVel - p * c.mass * nx;
         c2.xVel = c2.xVel + p * c2.mass * nx;
         c.yVel = c.yVel - p * c.mass * ny;
