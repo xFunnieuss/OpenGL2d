@@ -14,6 +14,7 @@ void drawCircle(GLFWwindow* window, double radius, double posX, double posY, dou
 void drawBlock(GLFWwindow* window, double x, double y, double length, double width, double r, double g, double b);
 void cordToNDC(double mousex, double mousey, float* ndcX, float* ndcY);
 void handleBallCollision(const Circle &c, const Circle &c2);
+void handleBlockCollision(const Circle &c, const Block &b);
 void prepareFrame(GLFWwindow* window);
 int mouseUp = 1;
 
@@ -107,7 +108,7 @@ struct Circle {
     }
 };
 struct Block {
-    int ballId;
+    int blockId;
     double sizeX;
     double sizeY;
     mutable double posX;
@@ -116,6 +117,10 @@ struct Block {
     double g;
     double b;
     double mass;
+};
+struct Corner {
+    double x;
+    double y;
 };
 int main() {
     GLFWwindow* window = init();
@@ -143,6 +148,10 @@ int main() {
                         handleBallCollision(c, c2);
                     }
                 }
+            }
+            //collision func for walls
+            for (const Block& b : blocks) {
+                handleBlockCollision(c, b);
             }
         }
         bindLeftClick(window);
@@ -263,6 +272,26 @@ void handleBallCollision(const Circle &c, const Circle &c2) {
         c2.xVel = c2.xVel + p * c2.mass * nx;
         c.yVel = c.yVel - p * c.mass * ny;
         c2.yVel = c2.yVel + p * c2.mass * ny;
+    }
+}
+void handleBlockCollision(const Circle &c, const Block &b) {
+    Corner bottomLeft = {b.posX, b.posY};
+    Corner topLeft = {b.posX, b.posY - b.sizeY/2};
+    Corner bottomRight = {b.posX + b.sizeX/2, b.posY};
+    Corner topRight = {b.posX + b.sizeX/2, b.posY- b.sizeY/2};
+    if (c.posX + c.radius >= topLeft.x && c.posX - c.radius <= topRight.x && c.posY + c.radius >= topLeft.y && c.posY >= topLeft.y - c.radius  && c.posY <= bottomLeft.y + c.radius ) {
+        if (c.posX + c.radius >= topLeft.x || c.posX - c.radius <= topRight.x) {
+            c.xVel = (c.xVel * -1) * COE;
+        }
+        if (c.posY >= topLeft.y - c.radius && c.posY <= bottomLeft.y + c.radius ) {
+            c.yVel = (c.yVel * -1) * COE;
+            if (c.posY >= topLeft.y - c.radius && std::abs(c.posY - bottomLeft.y) > b.sizeY/2 - c.radius) {
+                c.posY = topLeft.y - c.radius;
+            }
+            else {
+                c.posY = bottomLeft.y + c.radius;
+            }
+        }
     }
 }
 void cordToNDC(double x, double y, float* ndcX, float* ndcY) {
